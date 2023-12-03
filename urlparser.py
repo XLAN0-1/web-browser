@@ -43,5 +43,19 @@ class URL:
         s.close()
 
         return body
+    
+    def show(self, body):
+        in_tag = False
+        for c in body:
+            if c == "<":
+                in_tag = True
+            elif c == ">":
+                in_tag = False
+            elif not in_tag:
+                print(c, end="")
+
+    def load(self, url):
+        body = self.request(url)
+        self.show(body)
 
     
