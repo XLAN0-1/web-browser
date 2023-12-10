@@ -14,3 +14,9 @@ class SocketsCache:
             return self.sockets[socket_name]
         else:
             return -1
+
+    def invalidate_cache(self, scheme, host, port):
+        socket_name = f"{scheme}://{host}:{port}"
+        if socket_name in self.sockets:
+            self.sockets[socket_name].close()
+            del self.sockets[socket_name]
