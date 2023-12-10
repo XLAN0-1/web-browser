@@ -2,6 +2,7 @@ import socket
 import ssl
 import sockets_cache
 
+
 class URL:
     def __init__(self, url, cache):
         self.scheme, url = url.split("://", 1)
@@ -9,7 +10,6 @@ class URL:
         temp = self.scheme.split(":", 1)
         self.scheme = temp[-1]
         self.view_mode = temp[0] if len(temp) > 0 else "browser"
-
 
         assert self.scheme in ["http", "https", "file", "view-source:https"]
 
@@ -24,7 +24,7 @@ class URL:
 
         self.host, url = url.split("/", 1)
 
-        ## Allow for custom ports
+        # Allow for custom ports
         if ":" in self.host:
             self.host, port = self.host.split(":", 1)
             self.port = int(port)
@@ -36,27 +36,26 @@ class URL:
         # Cache the sockets to be reused by the same host
         self.cache = cache
 
-
     def request(self):
         if self.scheme in ["http", "https"]:
-            return self.http_request() 
+            return self.http_request()
         elif self.scheme == "file":
             return self.file_request()
 
-        
     def file_request(self):
         with open(f".{self.path}", "r", encoding="utf8") as file:
             return file.read()
-        
+
     def view_source_request(self):
         return self.set_entities(self.request())
 
     def http_request(self):
-        cache_socket = self.cache.get_socket(scheme=self.scheme, host=self.host, port=self.port)
+        cache_socket = self.cache.get_socket(
+            scheme=self.scheme, host=self.host, port=self.port)
         s = None
 
         if cache_socket == -1:
-            s= socket.socket(
+            s = socket.socket(
                 family=socket.AF_INET,
                 type=socket.SOCK_STREAM,
                 proto=socket.IPPROTO_TCP
@@ -66,23 +65,24 @@ class URL:
             s.connect((self.host, self.port))
 
             # Cache the socket to be used
-            self.cache.cache_socket(scheme=self.scheme, host=self.host, port=self.port, socket=s)
+            self.cache.cache_socket(
+                scheme=self.scheme, host=self.host, port=self.port, socket=s)
 
         else:
             s = cache_socket
-
-
 
         if self.port == 443:
             ctx = ssl.create_default_context()
             s = ctx.wrap_socket(s, server_hostname=self.host)
 
         headers = self.get_header_strings()
+        encoding = self.get_encoding()
+
+
         s.send(
-            (f"GET {self.path} HTTP/1.0\r\n{headers}\r\n\r\n".encode("utf8")))
+            (f"GET {self.path} HTTP/1.0\r\n{headers}\r\n\r\n".encode(encoding=encoding)))
 
-
-        response = s.makefile("r", encoding="utf8", newline="\r\n")
+        response = s.makefile("r", encoding=encoding, newline="\r\n")
         status_line = response.readline()
         version, status, explanation = status_line.split(" ", 2)
 
@@ -112,7 +112,6 @@ class URL:
     def add_header(self, name, value):
         self.headers[name] = value
 
-
     def get_header_strings(self):
         header_str = ""
         for key, value in self.headers.items():
@@ -120,10 +119,20 @@ class URL:
                 continue
             header_str += f"{key}: {value}\r\n"
         return header_str
-    
+
+    def get_encoding(self):
+        if "Content-Type" in self.headers:
+            content_type = self.headers["Content-Type"]
+            arr = content_type.split(";", 1)
+            if len(arr) == 1:
+                return "utf8"
+            charset = arr[1].split("=")[1]
+            return charset
+
+        return "utf8"
+
     def set_entities(self, message):
         return message.replace("&lt;", "<").replace("&gt;", ">")
-    
 
 
 def show(body):
@@ -152,5 +161,6 @@ if __name__ == "__main__":
     url = URL(sys.argv[1], cache=cache)
     url.add_header("Connection", "Close")
     url.add_header("User-Agent", "Lana")
+    url.add_header("Content-Type", "text/html; charset=UTF-8")
     url.add_header("Content-Length", 512)
     load(url)
