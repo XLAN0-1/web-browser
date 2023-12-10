@@ -1,9 +1,9 @@
 import socket
 import ssl
-
+import sockets_cache
 
 class URL:
-    def __init__(self, url):
+    def __init__(self, url, cache):
         self.scheme, url = url.split("://", 1)
 
         temp = self.scheme.split(":", 1)
@@ -33,6 +33,9 @@ class URL:
         self.headers = {}
         self.headers["HOST"] = self.host
 
+        # Cache the sockets to be reused by the same host
+        self.cache = cache
+
 
     def request(self):
         if self.scheme in ["http", "https"]:
@@ -49,14 +52,26 @@ class URL:
         return self.set_entities(self.request())
 
     def http_request(self):
-        s = socket.socket(
-            family=socket.AF_INET,
-            type=socket.SOCK_STREAM,
-            proto=socket.IPPROTO_TCP
-        )
+        cache_socket = self.cache.get_socket(scheme=self.scheme, host=self.host, port=self.port)
+        s = None
 
-        # Telnet to to host
-        s.connect((self.host, self.port))
+        if cache_socket == -1:
+            s= socket.socket(
+                family=socket.AF_INET,
+                type=socket.SOCK_STREAM,
+                proto=socket.IPPROTO_TCP
+            )
+
+            # Telnet to to host
+            s.connect((self.host, self.port))
+
+            # Cache the socket to be used
+            self.cache.cache_socket(scheme=self.scheme, host=self.host, port=self.port, socket=s)
+
+        else:
+            s = cache_socket
+
+
 
         if self.port == 443:
             ctx = ssl.create_default_context()
@@ -125,7 +140,8 @@ def load(url):
 
 if __name__ == "__main__":
     import sys
-    url = URL(sys.argv[1])
+    cache = sockets_cache.SocketsCache()
+    url = URL(sys.argv[1], cache=cache)
     url.add_header("Connection", "Close")
     url.add_header("User-Agent", "Lana")
     load(url)
