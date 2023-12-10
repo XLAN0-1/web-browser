@@ -51,7 +51,7 @@ class URL:
     def view_source_request(self):
         return self.set_entities(self.request())
 
-    def http_request(self):
+    def get_socket(self):
         cache_socket = self.cache.get_socket(
             scheme=self.scheme, host=self.host, port=self.port)
         s = None
@@ -78,6 +78,10 @@ class URL:
         else:
             s = cache_socket
 
+        return s
+
+    def http_request(self):
+        s = self.get_socket()
         headers = self.get_header_strings()
         encoding = self.get_encoding()
 
@@ -89,14 +93,7 @@ class URL:
 
         version, status, explanation = status_line.split(" ", 2)
 
-        response_headers = {}
-
-        while True:
-            line = response.readline()
-            if line == "\r\n":
-                break
-            header, value = line.split(":", 1)
-            response_headers[header.casefold()] = value.strip()
+        response_headers = self.get_response_headers(response=response)
 
         # Redirect the url
         if int(status) // 100 == 3:
@@ -114,13 +111,24 @@ class URL:
             if "Content-Length" in self.headers:
                 body = response.read(self.headers["Content-Length"])
             else:
-                # Read the whole content
                 body = response.read()
 
             return body
 
     def add_header(self, name, value):
         self.headers[name] = value
+
+    def get_response_headers(self, response):
+        response_headers = {}
+
+        while True:
+            line = response.readline()
+            if line == "\r\n":
+                break
+            header, value = line.split(":", 1)
+            response_headers[header.casefold()] = value.strip()
+
+        return response_headers
 
     def get_header_strings(self):
         header_str = ""
