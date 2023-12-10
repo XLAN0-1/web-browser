@@ -3,7 +3,6 @@ class SocketsCache:
 
     def __init__(self):
         self.sockets = {}
-        print("Created")
 
     def cache_socket(self, scheme, host, port, socket):
         self.sockets[f"{scheme}://{host}:{port}"] = socket

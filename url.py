@@ -98,11 +98,17 @@ class URL:
         assert "transfer-encoding" not in response_headers
         assert "content-encoding" not in response_headers
 
-        body = response.read()
-        s.close()
+        # Read a specific size if specified in content-length
+        body = None
+        print("here")
+        if "Content-Length" in self.headers:
+            body = response.read(self.headers["Content-Length"])
+        else:
+            # Read the whole content
+            body = response.read()
 
         return body
-    
+
     def add_header(self, name, value):
         self.headers[name] = value
 
@@ -110,6 +116,8 @@ class URL:
     def get_header_strings(self):
         header_str = ""
         for key, value in self.headers.items():
+            if key == "Content-Length":
+                continue
             header_str += f"{key}: {value}\r\n"
         return header_str
     
@@ -144,4 +152,5 @@ if __name__ == "__main__":
     url = URL(sys.argv[1], cache=cache)
     url.add_header("Connection", "Close")
     url.add_header("User-Agent", "Lana")
+    url.add_header("Content-Length", 512)
     load(url)
