@@ -5,7 +5,13 @@ import ssl
 class URL:
     def __init__(self, url):
         self.scheme, url = url.split("://", 1)
-        assert self.scheme in ["http", "https", "file"]
+
+        temp = self.scheme.split(":", 1)
+        self.scheme = temp[-1]
+        self.view_mode = temp[0] if len(temp) > 0 else "browser"
+
+
+        assert self.scheme in ["http", "https", "file", "view-source:https"]
 
         if self.scheme == "http":
             self.port = 80
@@ -17,6 +23,8 @@ class URL:
             url += "/"
 
         self.host, url = url.split("/", 1)
+
+        ## Allow for custom ports
         if ":" in self.host:
             self.host, port = self.host.split(":", 1)
             self.port = int(port)
@@ -31,11 +39,14 @@ class URL:
             return self.http_request() 
         elif self.scheme == "file":
             return self.file_request()
-        
 
+        
     def file_request(self):
         with open(f".{self.path}", "r", encoding="utf8") as file:
             return file.read()
+        
+    def view_source_request(self):
+        return self.set_entities(self.request())
 
     def http_request(self):
         s = socket.socket(
@@ -86,6 +97,10 @@ class URL:
         for key, value in self.headers.items():
             header_str += f"{key}: {value}\r\n"
         return header_str
+    
+    def set_entities(self, message):
+        return message.replace("&lt;", "<").replace("&gt;", ">")
+    
 
 
 def show(body):
@@ -101,7 +116,11 @@ def show(body):
 
 def load(url):
     body = url.request()
-    show(body)
+
+    if url.view_mode == "view-source":
+        print(url.set_entities(body))
+    else:
+        print(body)
 
 
 if __name__ == "__main__":
