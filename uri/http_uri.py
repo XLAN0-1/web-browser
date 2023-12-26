@@ -1,7 +1,7 @@
 import socket
 import ssl
-import uri.sockets_cache as sockets_cache
 import uri
+import gzip
 
 class HttpURI(uri.URI):
     def view_source_request(self):
@@ -44,12 +44,14 @@ class HttpURI(uri.URI):
         s.send(
             (f"GET {self.path} HTTP/1.0\r\n{headers}\r\n\r\n".encode(encoding=encoding)))
 
-        response = s.makefile("r", encoding=encoding, newline="\r\n")
-        status_line = response.readline()
+        response = s.makefile("rb", encoding=encoding, newline="\r\n")
+
+        status_line = response.readline().decode(encoding=encoding)
 
         version, status, explanation = status_line.split(" ", 2)
 
         response_headers = self.get_response_headers(response=response)
+
 
         # Redirect the url
         if int(status) // 100 == 3:
@@ -59,8 +61,6 @@ class HttpURI(uri.URI):
         else:
             # Not a redirect request
             self.redirect_count = 0
-            assert "transfer-encoding" not in response_headers
-            assert "content-encoding" not in response_headers
 
             # Read a specific size if specified in content-length
             body = None
@@ -68,17 +68,28 @@ class HttpURI(uri.URI):
                 body = response.read(self.headers["Content-Length"])
             else:
                 body = response.read()
+                if "content-encoding" in response_headers: 
+                   body = self.decompress_body(body)
 
+            # Cache the response 
             return body
+        
+    def decompress_body(self, body):
+        body = gzip.decompress(body)
+        return body 
 
     def add_header(self, name, value):
         self.headers[name] = value
+
+    def cache_response(self):
+        pass
 
     def get_response_headers(self, response):
         response_headers = {}
 
         while True:
-            line = response.readline()
+            line = response.readline().decode(encoding=self.get_encoding())
+
             if line == "\r\n":
                 break
             header, value = line.split(":", 1)
@@ -112,7 +123,7 @@ class HttpURI(uri.URI):
         self.redirect_count += 1
         print(self.redirect_count)
         self.parse_redirect_url(url)
-        return self.request()
+        return self.make_request()
 
     def parse_redirect_url(self, url: str):
         if url.startswith("/"):
@@ -121,33 +132,3 @@ class HttpURI(uri.URI):
         else:
             self.parse_url(url)
 
-
-def show(body):
-    in_tag = False
-    for c in body:
-        if c == "<":
-            in_tag = True
-        elif c == ">":
-            in_tag = False
-        elif not in_tag:
-            print(c, end="")
-
-
-def load(url):
-    body = url.make_request()
-
-    if url.view_mode == "view-source":
-
-        print(url.set_entities(body))
-    else:
-        print(body)
-
-
-if __name__ == "__main__":
-    import sys
-    cache = sockets_cache.SocketsCache()
-    url = HttpURI(url=sys.argv[1], cache=cache)
-    url.add_header("User-Agent", "Lana")
-    url.add_header("Content-Type", "text/html; charset=UTF-8")
-    url.add_header("Content-Length", 256)
-    load(url)

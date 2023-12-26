@@ -2,6 +2,7 @@
 
 class URI:
     def __init__(self, url, cache):
+        self.original = url
         self.parse_url(url=url)
         self.headers = {}
         self.headers["HOST"] = self.host
