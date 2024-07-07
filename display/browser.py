@@ -96,7 +96,7 @@ class Browser:
     def load(self, uri):
         try:
             url = HttpURI(url=uri, cache=self.cache)
-            text = url.make_request()  #"<small>a</small><big>A</big>"  
+            text = url.make_request()   # "<small>a</small><big>A</big>" 
             tokens = url.lex(text)
             self.layout = Layout(tokens)
             self.display_list = self.layout.display_list

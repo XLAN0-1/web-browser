@@ -38,3 +38,7 @@ class URI:
 
     def make_request(self):
         raise NotImplementedError("Subclasses must implement this method")
+    
+    def show(self):
+        raise NotImplementedError("Subclasses must implement this method")
+

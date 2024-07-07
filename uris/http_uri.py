@@ -1,9 +1,18 @@
+import os
 import socket
 import ssl
-import uri
 import gzip
+from .uri import URI
 
-class HttpURI(uri.URI):
+class Text:
+    def __init__(self, text):
+        self.text = text
+
+class Tag:
+    def __init__(self, tag):
+        self.tag = tag
+
+class HttpURI(URI):
     def view_source_request(self):
         return self.set_entities(self.request())
 
@@ -72,9 +81,10 @@ class HttpURI(uri.URI):
                    body = self.decompress_body(body)
 
             # Cache the response 
-            return body
+            return body.decode(encoding=encoding)
         
     def decompress_body(self, body):
+
         body = gzip.decompress(body)
         return body 
 
@@ -103,6 +113,8 @@ class HttpURI(uri.URI):
             if key == "Content-Length":
                 continue
             header_str += f"{key}: {value}\r\n"
+
+        print('HEADERS: ', header_str)
         return header_str
 
     def get_encoding(self):
@@ -116,8 +128,14 @@ class HttpURI(uri.URI):
 
         return "utf8"
 
-    def set_entities(self, message):
-        return message.replace("&lt;", "<").replace("&gt;", ">")
+    def set_entities(self, body):
+        return body.replace("&lt;", "<").replace("&gt;", ">")
+    
+    def decode(self, body):
+        if type(body) == "bytes":
+            return body.decode(encoding="utf8")
+        
+        return body
 
     def redirect(self, url):
         self.redirect_count += 1
@@ -131,4 +149,28 @@ class HttpURI(uri.URI):
             self.path = url
         else:
             self.parse_url(url)
+
+    def lex(self, body):
+        body = self.set_entities(body)
+        out = []
+        buffer = ""    
+        in_tag = False
+
+
+        for c in body:
+            if c == "<":
+                in_tag = True
+                if buffer: out.append(Text(buffer))
+                buffer = ""
+            elif c == ">":
+                in_tag = False
+                out.append(Tag(buffer))
+                buffer = ""
+            else:
+                buffer += c
+
+        if not in_tag and buffer:
+            out.append(Text(buffer))
+
+        return out
 

@@ -1,10 +1,9 @@
 import sys
-sys.path.insert(1, "/home/xlan/web_browser/uri")
-sys.path.insert(2, "/home/xlan/web_browser/cache")
 
-import sockets_cache
-import browser_cache
-import http_uri
+sys.path.append("..")
+
+from cache import sockets_cache, browser_cache
+from uris import http_uri
 
 def show(body):
     in_tag = False
